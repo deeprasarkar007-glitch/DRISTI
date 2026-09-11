@@ -14,12 +14,8 @@ venv/
 # Model artifacts (large binaries - don't commit trained models to git)
 model_training/saved_model/*.keras
 model_training/saved_model/*.h5
-model_training/saved_model/*.npy
-model_training/saved_model/*.json
 backend/saved_model/*.keras
 backend/saved_model/*.h5
-backend/saved_model/*.npy
-backend/saved_model/*.json
 
 # Training data (large files; keep local)
 model_training/image_data/**/*.jpg

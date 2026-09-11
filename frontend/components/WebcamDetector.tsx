@@ -111,7 +111,7 @@ export default function WebcamDetector({ onPredictionChange }: WebcamDetectorPro
           const form = new FormData();
           form.append("frame", blob, "frame.jpg");
 
-          const res = await fetch(`${API_URL}/predict`, {
+          const res = await fetch("/api/predict", {
             method: "POST",
             body: form,
           });
@@ -323,3 +323,4 @@ function Card({
     </div>
   );
 }
+

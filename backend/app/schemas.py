@@ -11,10 +11,10 @@ class PredictionResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     model_loaded: bool
-    detection_mode: str | None = None  # "similarity" | "classifier" | None
+    detection_mode: str | None = None
     class_names: list[str] | None = None
     similarity_threshold: float | None = None
-    visibility_enhancement_enabled: bool
+    visibility_enhancement_enabled: bool | None = None
 
 
 class TelemetryData(BaseModel):
@@ -31,4 +31,3 @@ class TelemetryData(BaseModel):
     safety_status: str = "SAFE"
     rssi: int = -70
     proximity: str = "CLOSE"
-

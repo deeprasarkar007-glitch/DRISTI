@@ -6,9 +6,12 @@ Run (from the backend/ folder, inside your virtual environment):
     uvicorn app.main:app --reload --port 8000
 
 Endpoints:
-    GET  /health   -> is the API up, and is the trained model loaded?
-    POST /predict  -> send one webcam frame (multipart/form-data, field "frame"),
+    GET  /health    -> is the API up, and is the trained model loaded?
+    POST /predict   -> send one webcam frame (multipart/form-data, field "frame"),
                        get back whether a dumper truck was detected.
+    GET  /telemetry -> fetch latest ESP32 distance, atmospheric & proximity telemetry
+    POST /telemetry -> update latest telemetry from ESP32 node
+    POST /telemetry/reset -> reset telemetry to default safe baseline
 """
 
 from __future__ import annotations
@@ -33,6 +36,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# Flexible origin support for frontend and mission control
 frontend_origin = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
 app.add_middleware(
     CORSMiddleware,
@@ -42,6 +46,14 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "http://localhost:3001",
         "http://127.0.0.1:3001",
+        "http://localhost:3002",
+        "http://127.0.0.1:3002",
+        "http://localhost:3003",
+        "http://127.0.0.1:3003",
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
     ],
     allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
@@ -56,6 +68,7 @@ def root():
         "service": "dumper-truck-detector-api",
         "docs": "/docs",
         "health": "/health",
+        "telemetry": "/telemetry",
     }
 
 
@@ -64,9 +77,9 @@ def health():
     return HealthResponse(
         status="ok",
         model_loaded=model_service.is_loaded,
-        detection_mode=model_service.mode,
+        detection_mode=getattr(model_service, "mode", "demo"),
         class_names=model_service.class_names,
-        similarity_threshold=model_service.similarity_threshold,
+        similarity_threshold=getattr(model_service, "similarity_threshold", 0.5),
         visibility_enhancement_enabled=ENHANCE_VISIBILITY,
     )
 
