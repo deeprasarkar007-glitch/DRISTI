@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+
+# Model artifacts (large binaries - don't commit trained models to git)
+model_training/saved_model/*.keras
+model_training/saved_model/*.h5
+model_training/saved_model/*.npy
+model_training/saved_model/*.json
+backend/saved_model/*.keras
+backend/saved_model/*.h5
+backend/saved_model/*.npy
+backend/saved_model/*.json
+
+# Training data (can be large; keep it local)
+model_training/image_data/**/*.jpg
+model_training/image_data/**/*.jpeg
+model_training/image_data/**/*.png
+model_training/image_data/**/*.JPG
+model_training/image_data/**/*.JPEG
+model_training/image_data/**/*.PNG
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Node / Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
+
+# Backend env
+backend/.env
+
+# OS
+.DS_Store
+Thumbs.db
