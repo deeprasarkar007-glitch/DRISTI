@@ -6,8 +6,8 @@ Run (from the backend/ folder, inside your virtual environment):
     uvicorn app.main:app --reload --port 8000
 
 Endpoints:
-    GET  /health   -> is the API up, and is the trained model loaded?
-    POST /predict  -> send one webcam frame (multipart/form-data, field "frame"),
+    GET  /health    -> is the API up, and is the trained model loaded?
+    POST /predict   -> send one webcam frame (multipart/form-data, field "frame"),
                        get back whether a dumper truck was detected.
 """
 
@@ -21,7 +21,7 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image, UnidentifiedImageError
 
-from app.model_service import ENHANCE_VISIBILITY, model_service
+from app.model_service import model_service
 from app.schemas import HealthResponse, PredictionResponse
 
 logging.basicConfig(level=logging.INFO)
@@ -33,10 +33,19 @@ app = FastAPI(
     version="1.0.0",
 )
 
-frontend_origin = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
+# Fix: Added port 3002 and wildcard/flexible origin support for the frontend
+frontend_origin = os.getenv("FRONTEND_ORIGIN", "http://localhost:3003")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[frontend_origin, "http://127.0.0.1:3000"],
+    allow_origins=[
+        frontend_origin, 
+        "http://localhost:3000", 
+        "http://127.0.0.1:3000", 
+        "http://localhost:3002", 
+        "http://127.0.0.1:3002",
+        "http://localhost:3003", 
+        "http://127.0.0.1:3003"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -57,10 +66,7 @@ def health():
     return HealthResponse(
         status="ok",
         model_loaded=model_service.is_loaded,
-        detection_mode=model_service.mode,
         class_names=model_service.class_names,
-        similarity_threshold=model_service.similarity_threshold,
-        visibility_enhancement_enabled=ENHANCE_VISIBILITY,
     )
 
 
@@ -89,3 +95,4 @@ async def predict(frame: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Prediction failed: {exc}") from exc
 
     return PredictionResponse(**result)
+

@@ -11,7 +11,4 @@ class PredictionResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     model_loaded: bool
-    detection_mode: str | None = None  # "similarity" | "classifier" | None
     class_names: list[str] | None = None
-    similarity_threshold: float | None = None
-    visibility_enhancement_enabled: bool

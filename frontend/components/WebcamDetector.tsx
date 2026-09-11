@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL =  "http://127.0.0.1:8000";
 const CAPTURE_INTERVAL_MS = 800;
 const JPEG_QUALITY = 0.8;
 
@@ -88,7 +88,7 @@ export default function WebcamDetector() {
           const form = new FormData();
           form.append("frame", blob, "frame.jpg");
 
-          const res = await fetch(`${API_URL}/predict`, {
+          const res = await fetch("/api/predict", {
             method: "POST",
             body: form,
           });
@@ -212,10 +212,6 @@ function StatusCard({ status }: { status: Status }) {
           style={{ width: `${confidencePct}%` }}
         />
       </div>
-      <p className="text-xs text-slate-500 mt-2">
-        Raw score: {result.raw_score.toFixed(3)} — useful if you need to tune
-        SIMILARITY_THRESHOLD in the backend.
-      </p>
     </Card>
   );
 }
@@ -248,3 +244,4 @@ function Card({
     </div>
   );
 }
+
