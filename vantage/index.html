@@ -1,0 +1,2226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DRISTI // Mission Control</title>
+  <meta name="theme-color" content="#000000">
+  <meta name="color-scheme" content="dark">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Leaflet OpenStreetMap CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    :root {
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', monospace;
+
+      /* High Glassmorphism Transparency & Rich Frost Depth */
+      --bg-glass: rgba(8, 12, 22, 0.44);
+      --bg-glass-sub: rgba(0, 0, 0, 0.22);
+      --border-subtle: rgba(255, 255, 255, 0.16);
+      --border-medium: rgba(255, 255, 255, 0.26);
+      --glass-glow: 0 10px 36px 0 rgba(0, 0, 0, 0.38), inset 0 1px 1px 0 rgba(255, 255, 255, 0.18);
+
+      /* ==========================================================
+         HIGH-CONTRAST 3-COLOR FONT & ACCENT PALETTE:
+         1. MONOCHROME WHITE (#ffffff, rgba(255,255,255,0.88), etc.)
+         2. ELECTRIC CYAN (#22d3ee)
+         3. WARNING AMBER (#fbbf24)
+         ========================================================== */
+      --c-white: #ffffff;
+      --c-white-dim: rgba(255, 255, 255, 0.88);
+      --c-white-muted: rgba(255, 255, 255, 0.70);
+
+      --c-cyan: #22d3ee;
+      --c-cyan-dim: rgba(34, 211, 238, 0.15);
+      --c-cyan-border: rgba(34, 211, 238, 0.38);
+
+      --c-amber: #fbbf24;
+      --c-amber-dim: rgba(251, 191, 36, 0.15);
+      --c-amber-border: rgba(251, 191, 36, 0.38);
+
+      --radius: 12px;
+      --radius-sm: 8px;
+      --radius-xs: 5px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #050608;
+      color: var(--c-white);
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+      font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    }
+
+    button { font-family: inherit; color: inherit; background: none; border: none; cursor: pointer; outline: none; }
+    button:focus-visible { outline: 1px solid rgba(255,255,255,0.5); outline-offset: 2px; }
+
+    /* Video background (Vivid & Clear) */
+    .bg-video {
+      position: fixed; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      z-index: 0;
+      pointer-events: none; user-select: none;
+      filter: brightness(0.92) saturate(1.2);
+    }
+
+    .bg-overlay {
+      position: fixed; inset: 0; z-index: 1;
+      pointer-events: none;
+      background:
+        linear-gradient(180deg, rgba(5,6,8,0.22) 0%, rgba(5,6,8,0.06) 30%, rgba(5,6,8,0.06) 70%, rgba(5,6,8,0.26) 100%),
+        radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(5,6,8,0.20) 100%);
+    }
+
+    .bg-overlay::after {
+      content: '';
+      position: absolute; inset: 0;
+      opacity: 0.02;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 128px 128px;
+    }
+
+    .shell {
+      position: fixed; inset: 0; z-index: 2;
+      display: grid;
+      grid-template-rows: auto auto 1fr minmax(285px, 310px);
+      gap: 7px;
+      padding: 8px 12px;
+      overflow: hidden;
+    }
+
+    .g {
+      background: var(--bg-glass);
+      backdrop-filter: blur(28px) saturate(150%);
+      -webkit-backdrop-filter: blur(28px) saturate(150%);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius);
+      box-shadow: var(--glass-glow);
+    }
+
+    /* Header */
+    .hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 14px; gap: 10px; flex-wrap: wrap;
+    }
+
+    .hdr-brand { display: flex; align-items: center; gap: 10px; }
+
+    .hdr-logo {
+      width: 28px; height: 28px; border-radius: 7px;
+      background: linear-gradient(135deg, rgba(34,211,238,0.28), rgba(34,211,238,0.10));
+      border: 1px solid var(--c-cyan-border);
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .hdr-title { font-weight: 700; font-size: 13.5px; letter-spacing: 0.5px; color: var(--c-white); }
+    .hdr-sub { font-size: 11px; color: var(--c-white-muted); margin-top: 1px; }
+
+    /* High-legibility Tags */
+    .tag {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 8px; border-radius: 4px;
+      font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+      border: 1px solid transparent; line-height: 1.5;
+    }
+
+    .tag-white { background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.22); color: var(--c-white); }
+    .tag-cyan { background: var(--c-cyan-dim); border-color: var(--c-cyan-border); color: var(--c-cyan); }
+    .tag-amber { background: var(--c-amber-dim); border-color: var(--c-amber-border); color: var(--c-amber); }
+
+    .tag-dot {
+      width: 5px; height: 5px; border-radius: 50%;
+      animation: breathe 2.4s ease-in-out infinite;
+    }
+
+    @keyframes breathe {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.35; transform: scale(0.85); }
+    }
+
+    .clock-display {
+      font-family: var(--font-mono); font-size: 11.5px; font-weight: 600;
+      color: var(--c-white);
+      background: var(--bg-glass-sub);
+      padding: 4px 10px; border-radius: var(--radius-xs);
+      border: 1px solid var(--border-subtle);
+      min-width: 135px; text-align: center;
+    }
+
+    .hdr-btn {
+      padding: 4px 10px; border-radius: var(--radius-xs);
+      font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+      border: 1px solid var(--border-subtle);
+      background: rgba(255,255,255,0.05);
+      color: var(--c-white-muted);
+      transition: all 120ms;
+    }
+
+    .hdr-btn:hover { background: rgba(255,255,255,0.12); color: var(--c-white); }
+    .hdr-btn.active { background: var(--c-cyan-dim); border-color: var(--c-cyan-border); color: var(--c-cyan); }
+
+    /* Threat Strip */
+    .threat {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 7px 14px; gap: 10px; flex-wrap: wrap;
+      transition: background 400ms, border-color 400ms;
+    }
+
+    .threat-left { display: flex; align-items: center; gap: 10px; }
+
+    .threat-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      transition: background 300ms, box-shadow 300ms;
+    }
+
+    .threat-label {
+      font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+      color: var(--c-white-muted); letter-spacing: 0.8px; text-transform: uppercase;
+    }
+
+    .threat-msg { font-size: 13px; font-weight: 600; letter-spacing: -0.1px; color: var(--c-white); }
+
+    .threat-badge {
+      font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+      padding: 3px 10px; border-radius: var(--radius-xs);
+      transition: all 300ms;
+    }
+
+    /* Cockpit */
+    .cockpit {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 7px; min-height: 0; overflow: hidden;
+    }
+
+    .panel {
+      padding: 11px; display: flex; flex-direction: column;
+      gap: 7px; overflow-y: auto; min-height: 0;
+    }
+
+    .panel::-webkit-scrollbar { width: 3px; }
+    .panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 999px; }
+
+    .panel-hdr { display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+
+    .panel-title {
+      font-family: var(--font-mono); font-size: 11.5px; font-weight: 700;
+      letter-spacing: 0.8px; text-transform: uppercase; color: var(--c-white);
+    }
+
+    .panel-title-icon {
+      display: inline-block; width: 7px; height: 7px; border-radius: 2px;
+      margin-right: 6px; vertical-align: middle; background: var(--c-cyan);
+    }
+
+    /* Vision viewport */
+    .viewport-frame {
+      position: relative; width: 100%; aspect-ratio: 16/9; max-height: 175px;
+      background: #07080c; border-radius: var(--radius-sm);
+      overflow: hidden; border: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+    }
+
+    .viewport-frame video {
+      width: 100%; height: 100%; object-fit: cover;
+    }
+
+    .viewport-label {
+      position: absolute; top: 7px; left: 8px;
+      font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+      color: var(--c-white);
+      pointer-events: none;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+    }
+
+    .viewport-fps {
+      position: absolute; top: 7px; right: 8px;
+      font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+      color: var(--c-white);
+      background: rgba(0,0,0,0.75); padding: 2px 7px;
+      border-radius: 3px; border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    .reticle-wrap {
+      display: none; position: absolute; inset: 0;
+      align-items: center; justify-content: center;
+      pointer-events: none;
+    }
+
+    .reticle-frame {
+      width: 58%; height: 50%;
+      border: 1.5px solid var(--c-amber);
+      border-radius: 6px;
+      box-shadow: 0 0 18px rgba(251,191,36,0.35);
+      display: flex; flex-direction: column;
+      justify-content: space-between; padding: 6px;
+      background: rgba(251,191,36,0.08);
+    }
+
+    .reticle-info {
+      font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+      color: var(--c-amber);
+      background: rgba(0,0,0,0.8); padding: 3px 6px;
+      border-radius: 3px; display: flex;
+      justify-content: space-between;
+    }
+
+    .reticle-alert {
+      text-align: center; font-family: var(--font-mono);
+      font-size: 11px; font-weight: 700; color: #000;
+      background: var(--c-amber); padding: 3px 6px;
+      border-radius: 3px;
+    }
+
+    .cam-overlay {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(7,8,12,0.88);
+      font-family: var(--font-mono); font-size: 12px;
+      color: var(--c-white);
+      flex-direction: column; gap: 7px;
+    }
+
+    .sub-card {
+      background: var(--bg-glass-sub); border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm); padding: 7px 10px;
+      font-family: var(--font-mono); font-size: 11.5px;
+      flex-shrink: 0;
+    }
+
+    .sub-row { display: flex; justify-content: space-between; align-items: center; }
+
+    .progress-track {
+      width: 100%; height: 4px;
+      background: rgba(255,255,255,0.12); border-radius: 999px;
+      overflow: hidden; margin: 4px 0;
+    }
+
+    .progress-fill {
+      height: 100%; border-radius: 999px;
+      transition: width 250ms ease, background 250ms;
+    }
+
+    /* Radar Section */
+    .radar-wrap {
+      position: relative; width: 100%; height: 85px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .radar-canvas { position: absolute; inset: 0; }
+
+    .radar-readout {
+      position: relative; z-index: 2; text-align: center;
+      font-family: var(--font-mono); padding-top: 2px;
+    }
+
+    .radar-num { font-size: 28px; font-weight: 800; letter-spacing: -1px; line-height: 1; color: var(--c-white); }
+    .radar-unit { font-size: 12px; font-weight: 600; color: var(--c-white-muted); margin-left: 1px; }
+    .radar-sub { font-size: 11px; font-weight: 500; color: var(--c-white-muted); margin-top: 2px; }
+
+    .sensor-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; flex-shrink: 0; }
+
+    .sensor-cell {
+      background: var(--bg-glass-sub); border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm); padding: 6px 8px;
+      text-align: center; font-family: var(--font-mono);
+    }
+
+    .sensor-label { font-size: 10px; font-weight: 600; color: var(--c-white-muted); letter-spacing: 0.6px; text-transform: uppercase; }
+    .sensor-value { font-size: 18px; font-weight: 700; margin: 2px 0; }
+    .sensor-hint { font-size: 9.5px; color: var(--c-white-muted); }
+
+    .heuristic {
+      display: flex; justify-content: space-between; align-items: center;
+      background: var(--bg-glass-sub); border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xs); padding: 5px 10px;
+      font-family: var(--font-mono); font-size: 11px;
+      color: var(--c-white-dim); flex-shrink: 0;
+    }
+
+    .heuristic b { font-size: 11.5px; font-weight: 700; }
+
+    /* =========================================================
+       DYNAMIC MOBILE NETWORK RSSI COMPONENT
+       Authentic smartphone cellular network status HUD
+       ========================================================= */
+    .mobile-net-widget {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--bg-glass-sub);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xs);
+      padding: 5px 9px;
+      font-family: var(--font-mono);
+      position: relative;
+      overflow: hidden;
+      margin-top: -1px;
+      transition: border-color 250ms ease;
+    }
+
+    .mobile-net-widget::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 2.5px;
+      background: var(--c-cyan);
+      box-shadow: 0 0 6px var(--c-cyan);
+      transition: background 250ms, box-shadow 250ms;
+    }
+
+    .mobile-net-widget.warn::before {
+      background: var(--c-amber);
+      box-shadow: 0 0 6px var(--c-amber);
+    }
+
+    .mobile-net-left {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .cell-tower-icon {
+      color: var(--c-cyan);
+      filter: drop-shadow(0 0 3px rgba(34, 211, 238, 0.4));
+      flex-shrink: 0;
+      transition: color 250ms;
+    }
+
+    .mobile-net-widget.warn .cell-tower-icon {
+      color: var(--c-amber);
+      filter: drop-shadow(0 0 3px rgba(251, 191, 36, 0.4));
+    }
+
+    .cell-info-col {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .cell-carrier-row {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .cell-carrier {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--c-white);
+      letter-spacing: 0.3px;
+    }
+
+    .cell-sub-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 9.5px;
+      color: var(--c-white-muted);
+    }
+
+    .cell-sep {
+      color: rgba(255, 255, 255, 0.3);
+    }
+
+    .mobile-net-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Mobile data activity arrows (▲ TX, ▼ RX) */
+    .data-activity {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      line-height: 5.5px;
+      font-size: 6.5px;
+      user-select: none;
+      color: rgba(255, 255, 255, 0.22);
+    }
+
+    .data-activity.mini {
+      line-height: 4.5px;
+      font-size: 5.5px;
+    }
+
+    .act-arrow {
+      transition: color 140ms ease, text-shadow 140ms ease;
+    }
+
+    .act-arrow.tx-active {
+      color: var(--c-cyan);
+      text-shadow: 0 0 5px var(--c-cyan);
+    }
+
+    .act-arrow.rx-active {
+      color: var(--c-white);
+      text-shadow: 0 0 5px var(--c-white);
+    }
+
+    /* Cellular Signal Bars (Authentic Mobile Network Geometry) */
+    .signal-bars {
+      display: inline-flex;
+      align-items: flex-end;
+      gap: 2.5px;
+      height: 16px;
+      padding: 0 1px;
+    }
+
+    .sig-bar {
+      width: 3.5px;
+      background: rgba(255, 255, 255, 0.18);
+      border-radius: 1.5px 1.5px 0.5px 0.5px;
+      transition: background 250ms ease, box-shadow 250ms ease, transform 150ms ease;
+    }
+
+    .sig-bar.bar-1 { height: 4px; }
+    .sig-bar.bar-2 { height: 8px; }
+    .sig-bar.bar-3 { height: 12px; }
+    .sig-bar.bar-4 { height: 16px; }
+
+    /* Dynamic active bar states */
+    .sig-bar.active {
+      background: var(--c-cyan);
+      box-shadow: 0 0 6px rgba(34, 211, 238, 0.85);
+    }
+
+    .sig-bar.active-amber {
+      background: var(--c-amber);
+      box-shadow: 0 0 6px rgba(251, 191, 36, 0.85);
+    }
+
+    .sig-bar.pulse {
+      animation: rfWave 600ms ease;
+    }
+
+    .rssi-dbm-box {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+
+    .rssi-val-text {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--c-cyan);
+      letter-spacing: -0.2px;
+      min-width: 58px;
+      text-align: right;
+    }
+
+    .rssi-tech-badge {
+      font-size: 9px;
+      font-weight: 700;
+      padding: 1.5px 5px;
+      border-radius: 3px;
+      background: var(--c-cyan-dim);
+      border: 1px solid var(--c-cyan-border);
+      color: var(--c-cyan);
+      letter-spacing: 0.5px;
+      transition: all 250ms;
+    }
+
+    /* Header dynamic mobile signal pill */
+    .hdr-signal-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 9px;
+      border-radius: 4px;
+      background: var(--bg-glass-sub);
+      border: 1px solid var(--border-subtle);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--c-cyan);
+      cursor: default;
+    }
+
+    .signal-bars.mini {
+      height: 12px;
+      gap: 2px;
+    }
+
+    .signal-bars.mini .sig-bar {
+      width: 2.5px;
+      border-radius: 1px 1px 0.5px 0.5px;
+    }
+
+    .signal-bars.mini .sig-bar.bar-1 { height: 3.5px; }
+    .signal-bars.mini .sig-bar.bar-2 { height: 6px; }
+    .signal-bars.mini .sig-bar.bar-3 { height: 9px; }
+    .signal-bars.mini .sig-bar.bar-4 { height: 12px; }
+
+    /* Subtle cellular transmission wave animation */
+    @keyframes rfWave {
+      0% { opacity: 0.85; transform: scaleY(1); }
+      50% { opacity: 1; transform: scaleY(1.08); filter: brightness(1.25); }
+      100% { opacity: 0.85; transform: scaleY(1); }
+    }
+
+    .sig-bar.active.pulse {
+      animation: rfWave 0.6s ease-out;
+    }
+
+    /* =========================================================
+       BOTTOM: SQUARE-LIKE BIGGER OSM INDIA MAP + REAL MINE DETAILS
+       ========================================================= */
+    .bottom {
+      display: grid;
+      grid-template-columns: 355px 1fr;
+      gap: 7px;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* Left Map Card (Square-like, bigger map view) */
+    .map-card {
+      padding: 9px 11px; display: flex; flex-direction: column;
+      min-height: 0; overflow: hidden;
+    }
+
+    .map-hdr {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 6px; flex-shrink: 0;
+    }
+
+    .map-title-row { display: flex; align-items: center; gap: 7px; }
+
+    .map-title {
+      font-family: var(--font-mono); font-size: 11.5px; font-weight: 700;
+      letter-spacing: 0.8px; text-transform: uppercase; color: var(--c-white);
+    }
+
+    .map-tools { display: flex; align-items: center; gap: 5px; }
+
+    .map-mini-btn {
+      font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;
+      padding: 3px 8px; border-radius: 3px;
+      border: 1px solid var(--border-subtle);
+      background: rgba(255,255,255,0.05);
+      color: var(--c-white-muted); transition: all 120ms;
+    }
+    .map-mini-btn:hover { background: rgba(255,255,255,0.12); color: var(--c-white); }
+    .map-mini-btn.active { background: var(--c-cyan-dim); border-color: var(--c-cyan-border); color: var(--c-cyan); }
+
+    /* Quick mine selection chips */
+    .mine-chips-wrap {
+      display: flex; gap: 5px; overflow-x: auto;
+      padding-bottom: 5px; margin-bottom: 6px; flex-shrink: 0;
+    }
+    .mine-chips-wrap::-webkit-scrollbar { height: 3px; }
+    .mine-chips-wrap::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 999px; }
+
+    .chip-btn {
+      font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+      padding: 3px 8px; border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+      background: rgba(255,255,255,0.06);
+      color: var(--c-white-muted); white-space: nowrap;
+      transition: all 120ms;
+    }
+    .chip-btn:hover { background: rgba(255,255,255,0.14); color: var(--c-white); }
+    .chip-btn.active {
+      background: var(--c-amber-dim); border-color: var(--c-amber-border); color: var(--c-amber);
+    }
+
+    /* OSM Leaflet container: Square-proportioned viewport */
+    #india-map {
+      width: 100%; flex: 1; min-height: 215px;
+      border-radius: var(--radius-xs);
+      overflow: hidden; border: 1px solid var(--border-subtle);
+      background: rgba(10, 14, 26, 0.70);
+    }
+
+    /* Dark theme styling for OSM tiles */
+    .osm-dark-tiles .leaflet-tile-pane {
+      filter: brightness(0.70) invert(1) contrast(2.6) hue-rotate(200deg) saturate(0.30) brightness(0.75);
+    }
+
+    .leaflet-control-zoom a {
+      background: rgba(10,14,26,0.92) !important;
+      color: var(--c-white) !important;
+      border-color: rgba(255,255,255,0.22) !important;
+    }
+    .leaflet-control-attribution {
+      background: rgba(0,0,0,0.75) !important;
+      color: var(--c-white-muted) !important;
+      font-size: 9px !important;
+      padding: 2px 6px !important;
+    }
+    .leaflet-control-attribution a { color: var(--c-cyan) !important; font-weight: 600; }
+
+    /* Custom Leaflet Marker for Mines */
+    .mine-marker-pin {
+      position: relative; width: 24px; height: 24px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+    }
+
+    .pin-pulse {
+      position: absolute; inset: -4px; border-radius: 50%;
+      background: rgba(251,191,36,0.40);
+      animation: pulseMarker 2.2s ease-out infinite;
+    }
+
+    .pin-core {
+      width: 14px; height: 14px; border-radius: 50%;
+      background: var(--c-amber); border: 2px solid #050608;
+      box-shadow: 0 0 10px rgba(251,191,36,0.9);
+      transition: all 180ms ease;
+    }
+
+    .mine-marker-pin.selected .pin-core {
+      background: var(--c-cyan);
+      box-shadow: 0 0 14px rgba(34,211,238,0.98);
+      transform: scale(1.25);
+    }
+
+    .mine-marker-pin.selected .pin-pulse {
+      background: rgba(34,211,238,0.45);
+    }
+
+    @keyframes pulseMarker {
+      0% { transform: scale(0.8); opacity: 0.9; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
+
+    /* Right Details Card */
+    .details-card {
+      padding: 9px 13px; display: flex; flex-direction: column;
+      min-height: 0; overflow: hidden;
+    }
+
+    .details-hdr {
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 6px; margin-bottom: 6px; flex-shrink: 0;
+    }
+
+    .details-title-row { display: flex; align-items: baseline; gap: 8px; overflow: hidden; }
+
+    .details-name {
+      font-size: 14px; font-weight: 700; color: var(--c-white);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .details-tabs { display: flex; gap: 4px; }
+
+    .tab-btn {
+      padding: 3px 9px; border-radius: 3px; font-family: var(--font-mono);
+      font-size: 10.5px; font-weight: 600; border: 1px solid transparent;
+      color: var(--c-white-muted); cursor: pointer;
+    }
+    .tab-btn.active {
+      background: rgba(255,255,255,0.10); border-color: var(--border-medium);
+      color: var(--c-white);
+    }
+
+    /* 4-cell stats grid for selected mine */
+    .mine-stats-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 6px; margin-bottom: 6px; flex-shrink: 0;
+    }
+
+    .mine-stat-cell {
+      background: var(--bg-glass-sub); border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xs); padding: 6px 8px; text-align: center;
+    }
+
+    .mine-stat-lbl {
+      font-family: var(--font-mono); font-size: 9.5px; font-weight: 600; color: var(--c-white-muted);
+      letter-spacing: 0.6px; text-transform: uppercase;
+    }
+
+    .mine-stat-val {
+      font-family: var(--font-mono); font-size: 14px; font-weight: 700;
+      color: var(--c-white); margin-top: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    /* Mine Technical & Safety Profile */
+    .mine-info-scroll {
+      flex: 1; min-height: 0; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 5px;
+      font-family: var(--font-mono); font-size: 11.5px;
+    }
+    .mine-info-scroll::-webkit-scrollbar { width: 3px; }
+    .mine-info-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 999px; }
+
+    .info-strip {
+      display: flex; justify-content: space-between; align-items: center;
+      background: var(--bg-glass-sub); border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xs); padding: 5px 9px;
+      color: var(--c-white-muted);
+    }
+
+    .info-strip b { font-weight: 600; color: var(--c-white); font-size: 12px; }
+
+    .hazard-strip {
+      background: var(--c-amber-dim); border: 1px solid var(--c-amber-border);
+      border-radius: var(--radius-xs); padding: 6px 10px;
+      color: var(--c-amber); font-size: 11px; line-height: 1.45;
+    }
+
+    /* Audit scroll in tab */
+    .audit-pane {
+      display: none; flex-direction: column; gap: 4px;
+      overflow-y: auto; flex: 1; min-height: 0;
+    }
+    .audit-pane::-webkit-scrollbar { width: 3px; }
+    .audit-pane::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 999px; }
+
+    .log-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 3px 6px; border-radius: 3px;
+      background: var(--bg-glass-sub);
+      font-family: var(--font-mono); font-size: 11px;
+      flex-shrink: 0; border-left: 2px solid transparent;
+    }
+
+    .log-time { color: var(--c-white-muted); flex-shrink: 0; font-size: 10px; }
+    .log-tag { padding: 2px 4px; border-radius: 2px; font-weight: 700; font-size: 10px; flex-shrink: 0; }
+    .log-msg { color: var(--c-white); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .shell > * { animation: slideUp 400ms cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+    .shell > *:nth-child(1) { animation-delay: 40ms; }
+    .shell > *:nth-child(2) { animation-delay: 100ms; }
+    .shell > *:nth-child(3) { animation-delay: 160ms; }
+    .shell > *:nth-child(4) { animation-delay: 220ms; }
+
+    @media (max-width: 960px) {
+      .cockpit { grid-template-columns: 1fr; }
+      .bottom { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Full-bleed background video -->
+  <video class="bg-video" autoplay muted loop playsinline disablepictureinpicture aria-hidden="true">
+    <source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260808_064556_051587f1-74a1-4336-8c05-4dde3594ed05.mp4" type="video/mp4">
+  </video>
+  <div class="bg-overlay"></div>
+
+  <div class="shell">
+
+    <!-- HEADER -->
+    <header class="g hdr">
+      <div class="hdr-brand">
+        <div class="hdr-logo">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--c-cyan);">
+            <circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2m-9-11h2m18 0h2m-3.3-6.7-1.4 1.4M6.7 17.3l-1.4 1.4m0-13.4 1.4 1.4m10.6 10.6 1.4 1.4"/>
+          </svg>
+        </div>
+        <div>
+          <div class="hdr-title">DRISTI — Mission Control</div>
+          <div class="hdr-sub">Sensor Fusion & Collision Safety</div>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+        <span id="api-tag" class="tag tag-amber">
+          <span class="tag-dot" style="background: var(--c-amber); box-shadow: 0 0 4px var(--c-amber);"></span>
+          Connecting…
+        </span>
+        <span id="tag-mine" class="tag tag-cyan">Bailadila (NMDC)</span>
+        
+        <!-- Header Dynamic Cellular Signal Pill -->
+        <div id="hdr-signal" class="hdr-signal-pill" title="ESP32 Wireless Mesh Cellular Telemetry Link">
+          <div class="signal-bars mini">
+            <div class="sig-bar bar-1 active"></div>
+            <div class="sig-bar bar-2 active"></div>
+            <div class="sig-bar bar-3 active"></div>
+            <div class="sig-bar bar-4"></div>
+          </div>
+          <div class="data-activity mini" title="Uplink / Downlink Activity">
+            <span id="hdr-tx-arrow" class="act-arrow tx-active">▲</span>
+            <span id="hdr-rx-arrow" class="act-arrow rx-active">▼</span>
+          </div>
+          <span id="hdr-rssi-text">4G · -70 dBm</span>
+        </div>
+
+        <span id="tag-mode" class="tag tag-cyan" style="display: none;">—</span>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+        <div id="live-clock" class="clock-display">—</div>
+        <div style="display: flex; gap: 4px;">
+          <button id="v-dual" class="hdr-btn active">Dual</button>
+          <button id="v-vision" class="hdr-btn">Vision</button>
+          <button id="v-radar" class="hdr-btn">Radar</button>
+          <button id="v-mines" class="hdr-btn">Mines Map</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- THREAT STRIP -->
+    <div id="threat" class="g threat" style="border-color: var(--border-subtle);">
+      <div class="threat-left">
+        <div id="threat-dot" class="threat-dot" style="background: var(--c-white-muted);"></div>
+        <div>
+          <div class="threat-label">Threat Assessment</div>
+          <div id="threat-msg" class="threat-msg">Sensors Online · Haul Road Clear</div>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+        <span id="t-optical" class="tag tag-cyan">Optical: —</span>
+        <span id="t-radar" class="tag tag-cyan">Radar: —</span>
+        <span id="t-badge" class="threat-badge" style="background: rgba(255,255,255,0.08); border: 1px solid var(--border-medium); color: var(--c-white-muted);">Awaiting…</span>
+      </div>
+    </div>
+
+    <!-- COCKPIT -->
+    <div id="cockpit" class="cockpit">
+
+      <!-- AI OPTICAL VISION PANEL -->
+      <div id="p-vision" class="g panel">
+        <div class="panel-hdr">
+          <div class="panel-title">
+            <span class="panel-title-icon"></span>
+            AI Optical Vision
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <button id="btn-cam-action" class="hdr-btn" style="padding: 2px 8px; font-size: 10px;" title="Connect camera">Connect Cam</button>
+            <span id="cam-status-tag" class="tag tag-amber">Standby</span>
+          </div>
+        </div>
+
+        <div class="viewport-frame">
+          <video id="cam-video" autoplay playsinline muted style="display: none;"></video>
+          <canvas id="sim-canvas" width="480" height="270" style="display: none; width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-sm);"></canvas>
+          <canvas id="predict-canvas" width="224" height="224" style="display: none;"></canvas>
+
+          <div id="viewport-info" class="viewport-label"></div>
+          <div id="fps-tag" class="viewport-fps" style="display: none;">—</div>
+
+          <div id="reticle" class="reticle-wrap">
+            <div class="reticle-frame">
+              <div class="reticle-info">
+                <span>DUMPER TRUCK</span>
+                <span id="reticle-lock">LOCK —%</span>
+              </div>
+            </div>
+          </div>
+
+          <div id="cam-msg" class="cam-overlay">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--c-cyan); opacity: 0.85;">
+              <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/>
+            </svg>
+            <span style="font-weight: 600; font-size: 12px;">Camera Standby</span>
+            <button id="btn-connect-cam-overlay" class="map-mini-btn active" style="margin-top: 4px; padding: 4px 12px; font-size: 11px;">Connect Camera</button>
+          </div>
+        </div>
+
+        <!-- Real Vision inference stats -->
+        <div id="vision-stats" class="sub-card" style="display: flex; flex-direction: column; gap: 4px;">
+          <div class="sub-row">
+            <span id="v-status" style="color: var(--c-white); font-weight: 600;">Standby…</span>
+            <span id="v-conf" style="color: var(--c-white-muted); font-weight: 700;">—</span>
+          </div>
+          <div class="progress-track">
+            <div id="v-bar" class="progress-fill" style="width: 0%;"></div>
+          </div>
+          <div class="sub-row" style="color: var(--c-white-muted); font-size: 10.5px;">
+            <span id="v-raw">Raw: —</span>
+            <span id="v-threshold">Threshold: —</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ESP32 RADAR PANEL -->
+      <div id="p-radar" class="g panel">
+        <div class="panel-hdr">
+          <div class="panel-title">
+            <span class="panel-title-icon"></span>
+            ESP32 Sensor Telemetry
+          </div>
+          <span id="prox-tag" class="tag tag-cyan">—</span>
+        </div>
+
+        <!-- Radar Arc -->
+        <div class="radar-wrap">
+          <canvas id="radar-canvas" class="radar-canvas"></canvas>
+          <div class="radar-readout">
+            <span id="r-dist" class="radar-num">—</span><span class="radar-unit">mm</span>
+            <div id="r-cm" class="radar-sub">—</div>
+          </div>
+        </div>
+
+        <!-- Sensors from ESP32 -->
+        <div class="sensor-row">
+          <div class="sensor-cell">
+            <div class="sensor-label">Humidity</div>
+            <div id="s-hum" class="sensor-value" style="color: var(--c-cyan);">—</div>
+            <div class="sensor-hint">≥75% Fog</div>
+          </div>
+          <div class="sensor-cell">
+            <div class="sensor-label">Light</div>
+            <div id="s-lux" class="sensor-value" style="color: var(--c-amber);">—</div>
+            <div class="sensor-hint">≤100 Lux</div>
+          </div>
+          <div class="sensor-cell">
+            <div class="sensor-label">Temp</div>
+            <div id="s-temp" class="sensor-value" style="color: var(--c-white);">—</div>
+            <div class="sensor-hint">DHT22</div>
+          </div>
+        </div>
+
+        <!-- Heuristics from real sensor data -->
+        <div class="heuristic">
+          <span>Obstacle: <b id="ir-val" style="color: var(--c-white-muted);">—</b></span>
+          <span>Fog: <b id="fog-val" style="color: var(--c-white-muted);">—</b></span>
+          <span>Safety: <b id="safety-val" style="color: var(--c-white-muted);">—</b></span>
+        </div>
+
+        <!-- Dedicated Dynamic Mobile Cellular Network Status Widget -->
+        <div class="mobile-net-widget" id="mobile-net-widget" title="Live Dynamic ESP32 Mesh Mobile Cellular Network Telemetry Link">
+          <div class="mobile-net-left">
+            <svg class="cell-tower-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2v20M7 7l5-5 5 5M4 13l8-8 8 8M2 20l10-10 10 10"/>
+            </svg>
+            <div class="cell-info-col">
+              <div class="cell-carrier-row">
+                <span class="cell-carrier">ESP32 MESH</span>
+                <span id="rssi-badge" class="rssi-tech-badge">4G LTE</span>
+              </div>
+              <div class="cell-sub-row">
+                <span id="cell-channel">CH 11</span>
+                <span class="cell-sep">·</span>
+                <span id="rssi-quality">92% Signal</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mobile-net-right">
+            <!-- Mobile data activity arrows (▲ TX, ▼ RX) -->
+            <div class="data-activity" title="Dynamic Packet Upload / Download">
+              <span id="tx-arrow" class="act-arrow tx-active">▲</span>
+              <span id="rx-arrow" class="act-arrow rx-active">▼</span>
+            </div>
+
+            <!-- Dynamic 4-Bar Mobile Cellular Signal Meter -->
+            <div class="signal-bars">
+              <div class="sig-bar bar-1 active"></div>
+              <div class="sig-bar bar-2 active"></div>
+              <div class="sig-bar bar-3 active"></div>
+              <div class="sig-bar bar-4"></div>
+            </div>
+
+            <!-- Dynamic dBm readout -->
+            <div class="rssi-dbm-box">
+              <span id="rssi-dbm" class="rssi-val-text">-70 dBm</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- LOWER BOTTOM: SQUARE-LIKE BIGGER OSM INDIA MAP + REAL IRON MINES DETAILS -->
+    <div class="bottom">
+
+      <!-- LEFT: SQUARE-LIKE BIGGER OSM INDIA MAP -->
+      <div class="g map-card">
+        <div class="map-hdr">
+          <div class="map-title-row">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="color: var(--c-amber);">
+              <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+              <line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/>
+            </svg>
+            <span class="map-title">OSM India Mines Map</span>
+          </div>
+
+          <div class="map-tools">
+            <button id="btn-fit-india" class="map-mini-btn" title="Fit all India iron mines">Fit All</button>
+            <button id="btn-toggle-tiles" class="map-mini-btn active" title="Toggle Dark GIS / Standard OSM">Dark GIS</button>
+          </div>
+        </div>
+
+        <!-- Quick filter chips for top mines -->
+        <div id="mine-chips" class="mine-chips-wrap">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- OpenStreetMap Container (Square-proportioned view) -->
+        <div id="india-map" class="osm-dark-tiles"></div>
+      </div>
+
+      <!-- RIGHT: VERIFIED INDIAN IRON MINE DETAILS (HIGH READABILITY) -->
+      <div class="g details-card">
+        <div class="details-hdr">
+          <div class="details-title-row">
+            <span id="d-name" class="details-name">Bailadila Iron Ore Complex</span>
+            <span id="d-state" class="tag tag-cyan">Chhattisgarh</span>
+          </div>
+
+          <div class="details-tabs">
+            <button id="tab-specs-btn" class="tab-btn active">Mine Details</button>
+            <button id="tab-audit-btn" class="tab-btn">Event Log</button>
+          </div>
+        </div>
+
+        <!-- TAB 1: Real Iron Mine Specs -->
+        <div id="tab-specs" style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
+          <div class="mine-stats-grid">
+            <div class="mine-stat-cell">
+              <div class="mine-stat-lbl">Fe Grade</div>
+              <div id="d-grade" class="mine-stat-val" style="color: var(--c-amber);">65.5% – 67.5%</div>
+            </div>
+            <div class="mine-stat-cell">
+              <div class="mine-stat-lbl">Capacity</div>
+              <div id="d-capacity" class="mine-stat-val" style="color: var(--c-cyan);">28.0 MTPA</div>
+            </div>
+            <div class="mine-stat-cell">
+              <div class="mine-stat-lbl">Reserves</div>
+              <div id="d-reserves" class="mine-stat-val" style="color: var(--c-white);">1,200+ MT</div>
+            </div>
+            <div class="mine-stat-cell">
+              <div class="mine-stat-lbl">Deposit Type</div>
+              <div id="d-ore" class="mine-stat-val" style="color: var(--c-cyan);">Hematite</div>
+            </div>
+          </div>
+
+          <div class="mine-info-scroll">
+            <div class="info-strip">
+              <span>Operator</span>
+              <b id="d-operator" style="color: var(--c-cyan);">NMDC Ltd.</b>
+            </div>
+            <div class="info-strip">
+              <span>Fleet</span>
+              <b id="d-fleet" style="color: var(--c-white);">170T–240T CAT Dumpers</b>
+            </div>
+            <div class="info-strip">
+              <span>Supply Link</span>
+              <b id="d-supply" style="color: var(--c-white);">Vizag Steel (RINL)</b>
+            </div>
+            <div id="d-hazard" class="hazard-strip">
+              <b>Hazard:</b> Steep Incline Haul Roads / Monsoon Fog
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: System Event Log -->
+        <div id="tab-audit" class="audit-pane">
+          <div id="logs" style="display: flex; flex-direction: column; gap: 4px;"></div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    const API = 'http://127.0.0.1:8000';
+    const $ = id => document.getElementById(id);
+
+    let backendOnline = false;
+    let healthData = null;
+    let telemetryReceived = false;
+    let cameraActive = false;
+    let webcamStream = null;
+    let predicting = false;
+
+    let telemetry = {};
+    let visionResult = { detected: false, confidence: 0, raw_score: 0 };
+    let logs = [];
+
+    // ==========================================
+    // AUTHENTIC INDIAN IRON ORE MINES DATASET
+    // ==========================================
+    const INDIAN_IRON_MINES = [
+      {
+        id: 'bailadila',
+        name: 'Bailadila Iron Ore Complex',
+        sub: 'Deposit 14, 11C & 5',
+        district: 'Dantewada',
+        state: 'Chhattisgarh',
+        lat: 18.6675,
+        lng: 81.2536,
+        operator: 'NMDC Ltd. (Navratna PSU)',
+        oreType: 'High-Grade Hematite',
+        feGrade: '65.5% – 67.5% Fe',
+        capacity: '28.0 MTPA',
+        reserves: '1,200+ MT',
+        fleet: '170T–240T CAT & Komatsu Dumpers, Electric Shovels',
+        tech: 'Single-flight downhill conveyor, DRISTI IoT mesh, radar collision alert',
+        status: 'Operational · Highest Grade in Asia',
+        supplyTo: 'Vizag Steel (RINL), AM/NS Hazira, Nippon Steel Export',
+        hazard: 'Ghat Section / Steep Haul Incline (Heavy Fog in Monsoon)'
+      },
+      {
+        id: 'noamundi',
+        name: 'Noamundi Iron Mine',
+        sub: 'Katamaturu & Noamundi Pits',
+        district: 'West Singhbhum',
+        state: 'Jharkhand',
+        lat: 22.1481,
+        lng: 85.4858,
+        operator: 'Tata Steel Ltd.',
+        oreType: 'Hard Lumpy Hematite',
+        feGrade: '63.5% – 65.0% Fe',
+        capacity: '10.0 MTPA',
+        reserves: '350+ MT',
+        fleet: 'CAT 777E 100T Dumpers, Komatsu WA900 loaders',
+        tech: 'Smart Mine Control Centre, Drone volumetric surveying, Optical AI',
+        status: 'Operational · Pioneer Mine (Est. 1925)',
+        supplyTo: 'Tata Steel Jamshedpur Works',
+        hazard: 'Heavy haul road intersections & blind curve navigation'
+      },
+      {
+        id: 'joda_east',
+        name: 'Joda East Iron Mine',
+        sub: 'Kundan & Khondbond Valley',
+        district: 'Keonjhar',
+        state: 'Odisha',
+        lat: 22.0167,
+        lng: 85.4333,
+        operator: 'Tata Steel Ltd.',
+        oreType: 'High-Grade Hematite',
+        feGrade: '64.0% – 65.5% Fe',
+        capacity: '12.0 MTPA',
+        reserves: '280+ MT',
+        fleet: '100T Dumpers, hydraulic excavators',
+        tech: '4G LTE Private Mine Network, IoT proximity telemetry, SCADA plant',
+        status: 'Operational · Fully Mechanized',
+        supplyTo: 'Tata Steel Kalinganagar & Jamshedpur',
+        hazard: 'High traffic pit approaches & dust/fog low-visibility'
+      },
+      {
+        id: 'kiriburu',
+        name: 'Kiriburu Iron Ore Mine',
+        sub: 'Saranda Forest Reserve Sector',
+        district: 'West Singhbhum / Keonjhar',
+        state: 'Jharkhand / Odisha',
+        lat: 22.0833,
+        lng: 85.3500,
+        operator: 'SAIL (Raw Materials Division)',
+        oreType: 'Hematite (Lumps & Fines)',
+        feGrade: '62.5% – 64.0% Fe',
+        capacity: '5.5 MTPA',
+        reserves: '220+ MT',
+        fleet: '85T dump trucks, P&H electric rope shovels',
+        tech: 'In-pit crushing and conveying (IPCC), optical truck detection',
+        status: 'Operational · Captive SAIL Supply',
+        supplyTo: 'Bokaro Steel Plant (SAIL)',
+        hazard: 'Dense forest terrain, heavy monsoon rainfall & low visibility'
+      },
+      {
+        id: 'donimalai',
+        name: 'Donimalai Iron Ore Mine',
+        sub: 'Sandur Synclinorium South Block',
+        district: 'Ballari (Bellary)',
+        state: 'Karnataka',
+        lat: 15.0500,
+        lng: 76.6167,
+        operator: 'NMDC Ltd.',
+        oreType: 'Hematite & Blue Dust',
+        feGrade: '64.0% – 65.5% Fe',
+        capacity: '7.0 MTPA',
+        reserves: '160+ MT',
+        fleet: '120T Caterpillar haul trucks, 10m³ excavators',
+        tech: 'Computerized truck dispatch (FMS), automated rapid wagon loading',
+        status: 'Operational · Strategic Southern Hub',
+        supplyTo: 'JSW Steel Vijayanagar, RINL Vizag',
+        hazard: 'Hilltop bench slopes & high ambient dust in dry season'
+      },
+      {
+        id: 'dalli_rajhara',
+        name: 'Dalli-Rajhara Iron Ore Complex',
+        sub: 'Rajhara Hill & Dalli Pits',
+        district: 'Balod',
+        state: 'Chhattisgarh',
+        lat: 20.5833,
+        lng: 81.0833,
+        operator: 'SAIL (Bhilai Steel Plant)',
+        oreType: 'Hematite (Lumpy & Float ore)',
+        feGrade: '62.0% – 64.0% Fe',
+        capacity: '7.0 MTPA',
+        reserves: '180+ MT',
+        fleet: '85T mechanical dumpers, rotary drills',
+        tech: 'Hilltop haulage roads, sensor-based obstacle alert units',
+        status: 'Operational · Historic Bhilai Backbone',
+        supplyTo: 'Bhilai Steel Plant (SAIL)',
+        hazard: 'Steep downhill haul gradients & aging bench walls'
+      },
+      {
+        id: 'jajang',
+        name: 'Jajang Iron Ore Mine',
+        sub: 'Barbil-Joda Mining Belt',
+        district: 'Keonjhar',
+        state: 'Odisha',
+        lat: 21.9167,
+        lng: 85.2833,
+        operator: 'JSW Steel Ltd.',
+        oreType: 'Hematite (High Fe)',
+        feGrade: '62.8% – 63.8% Fe',
+        capacity: '12.5 MTPA',
+        reserves: '210+ MT',
+        fleet: '100T high-capacity haulers, surface miners',
+        tech: 'Real-time GPS vehicle tracking, automated dispatch & telemetry',
+        status: 'Operational · Highest Dispatch in Odisha',
+        supplyTo: 'JSW Steel Dolvi & Vijayanagar Plants',
+        hazard: 'High conveyor intersection density & multi-fleet coordination'
+      },
+      {
+        id: 'kumaraswamy',
+        name: 'Kumaraswamy Iron Ore Mine',
+        sub: 'Sandur Basin Central Block',
+        district: 'Ballari',
+        state: 'Karnataka',
+        lat: 15.0167,
+        lng: 76.5833,
+        operator: 'NMDC Ltd.',
+        oreType: 'Hematite',
+        feGrade: '63.8% – 64.5% Fe',
+        capacity: '10.0 MTPA',
+        reserves: '190+ MT',
+        fleet: '100T–120T dump trucks, diesel shovels',
+        tech: 'SCADA monitoring, automated dust suppression, proximity sensors',
+        status: 'Operational · Mechanized Open Cast',
+        supplyTo: 'Domestic steel plants & pellet plants across South India',
+        hazard: 'Sharp hairpin curves on haul ramp descent'
+      },
+      {
+        id: 'bolani',
+        name: 'Bolani Iron Ore Mine',
+        sub: 'Barbil Valley Northern Spur',
+        district: 'Keonjhar',
+        state: 'Odisha',
+        lat: 22.1000,
+        lng: 85.3167,
+        operator: 'SAIL',
+        oreType: 'Hematite & Super Fines',
+        feGrade: '62.5% – 63.5% Fe',
+        capacity: '10.0 MTPA',
+        reserves: '240+ MT',
+        fleet: '85T–100T dumpers, high-reach loaders',
+        tech: 'Rapid train loading system, continuous ambient air monitoring',
+        status: 'Operational · Primary SAIL Captive Source',
+        supplyTo: 'Durgapur & Rourkela Steel Plants (SAIL)',
+        hazard: 'Heavy pit fog during early dawn operations'
+      },
+      {
+        id: 'surjagarh',
+        name: 'Surjagarh Iron Ore Mine',
+        sub: 'Etapalli Hills',
+        district: 'Gadchiroli',
+        state: 'Maharashtra',
+        lat: 19.5500,
+        lng: 80.3333,
+        operator: 'Lloyds Metals and Energy (LMEL)',
+        oreType: 'High-Grade Hematite',
+        feGrade: '63.5% – 64.5% Fe',
+        capacity: '10.0 MTPA',
+        reserves: '180+ MT',
+        fleet: 'Modern mechanized dumper convoy, hydraulic shovels',
+        tech: 'GPS fleet tracking corridor, edge telematics on haulers',
+        status: 'Operational · High-Growth Western Hub',
+        supplyTo: 'Lloyds Konsari Sponge Iron Plant & domestic mills',
+        hazard: 'Remote forest corridor & night transport convoy management'
+      },
+      {
+        id: 'gua',
+        name: 'Gua Iron Ore Mine',
+        sub: 'Durgaiburu Pits',
+        district: 'West Singhbhum',
+        state: 'Jharkhand',
+        lat: 22.2167,
+        lng: 85.3833,
+        operator: 'SAIL',
+        oreType: 'Hematite',
+        feGrade: '62.0% – 63.0% Fe',
+        capacity: '4.0 MTPA (Expanding to 10 MTPA)',
+        reserves: '140+ MT',
+        fleet: 'Heavy dumper fleet, open cast mechanical shovels',
+        tech: 'Downhill conveyor to processing plant, optical safety radar',
+        status: 'Operational · Major Expansion Phase',
+        supplyTo: 'IISCO Steel Plant (Burnpur, SAIL)',
+        hazard: 'Steep hill incline haul roads'
+      },
+      {
+        id: 'kudremukh',
+        name: 'Kudremukh Iron Ore Deposit',
+        sub: 'Western Ghats Ridge',
+        district: 'Chikkamagaluru',
+        state: 'Karnataka',
+        lat: 13.2167,
+        lng: 75.2500,
+        operator: 'KIOCL Ltd.',
+        oreType: 'Magnetite Deposit',
+        feGrade: '38%–42% Fe (Beneficiated to 67% pellets)',
+        capacity: 'Legacy Asset / Strategic Reserve',
+        reserves: '600+ MT Magnetite deposit',
+        fleet: 'Historic electric shovel & 120T truck fleet',
+        tech: '110km slurry pipeline to Mangalore Pellet Plant (Engineering marvel)',
+        status: 'Strategic Reserve / Eco-Protected Benchmark',
+        supplyTo: 'Mangalore Port Export Facility',
+        hazard: 'High rainfall ecological zone'
+      }
+    ];
+
+    let currentMine = INDIAN_IRON_MINES[0];
+    let mapInstance = null;
+    let markersMap = {};
+    let darkTilesActive = true;
+
+    // ==========================================
+    // DYNAMIC MOBILE NETWORK RSSI CONTROLLER
+    // ==========================================
+    let baseRssi = -70;
+    let currentRssi = -70;
+    let rssiJitterTimer = null;
+
+    function flashPacketArrows() {
+      const tx = $('tx-arrow'), rx = $('rx-arrow');
+      const htx = $('hdr-tx-arrow'), hrx = $('hdr-rx-arrow');
+      const doTx = Math.random() > 0.35;
+      const doRx = Math.random() > 0.25;
+
+      if (tx) tx.classList.toggle('tx-active', doTx);
+      if (rx) rx.classList.toggle('rx-active', doRx);
+      if (htx) htx.classList.toggle('tx-active', doTx);
+      if (hrx) hrx.classList.toggle('rx-active', doRx);
+
+      setTimeout(() => {
+        if (tx) tx.classList.remove('tx-active');
+        if (rx) rx.classList.remove('rx-active');
+        if (htx) htx.classList.remove('tx-active');
+        if (hrx) hrx.classList.remove('rx-active');
+      }, 350);
+    }
+
+    function updateSignalBars(rssi) {
+      currentRssi = rssi;
+      
+      // Calculate cellular bars:
+      // >= -65 dBm: 4 bars (Excellent)
+      // -66 to -76 dBm: 3 bars (Good)
+      // -77 to -86 dBm: 2 bars (Fair)
+      // <= -87 dBm: 1 bar (Weak)
+      let numBars = 4;
+      let colorClass = 'active'; // Cyan
+      let tech = '4G LTE';
+
+      if (rssi >= -65) {
+        numBars = 4;
+        colorClass = 'active';
+        tech = '4G+';
+      } else if (rssi >= -76) {
+        numBars = 3;
+        colorClass = 'active';
+        tech = '4G';
+      } else if (rssi >= -86) {
+        numBars = 2;
+        colorClass = 'active-amber';
+        tech = '3G';
+      } else {
+        numBars = 1;
+        colorClass = 'active-amber';
+        tech = '2G';
+      }
+
+      // Update all cellular signal bar groups (panel + header)
+      document.querySelectorAll('.signal-bars').forEach(barGroup => {
+        const bars = barGroup.querySelectorAll('.sig-bar');
+        bars.forEach((b, idx) => {
+          b.className = `sig-bar bar-${idx + 1}`;
+          if (idx < numBars) {
+            b.classList.add(colorClass);
+            b.classList.add('pulse');
+            setTimeout(() => b.classList.remove('pulse'), 600);
+          }
+        });
+      });
+
+      const isWarn = numBars <= 2;
+      const colorVar = isWarn ? 'var(--c-amber)' : 'var(--c-cyan)';
+
+      // Quality calculation (-100 dBm = 0%, -50 dBm = 100%)
+      const qualPct = Math.min(99, Math.max(14, Math.round(2 * (rssi + 100))));
+      const qualEl = $('rssi-quality');
+      if (qualEl) {
+        qualEl.textContent = `${qualPct}% Signal`;
+      }
+
+      // Toggle widget warning style if signal degraded
+      const netWidget = $('mobile-net-widget');
+      if (netWidget) {
+        netWidget.classList.toggle('warn', isWarn);
+      }
+
+      // Update numeric readout in ESP32 panel
+      const valEl = $('rssi-dbm');
+      if (valEl) {
+        valEl.textContent = `${rssi} dBm`;
+        valEl.style.color = colorVar;
+      }
+
+      // Update cellular badge
+      const badgeEl = $('rssi-badge');
+      if (badgeEl) {
+        badgeEl.textContent = tech;
+        badgeEl.style.color = colorVar;
+        badgeEl.style.borderColor = isWarn ? 'var(--c-amber-border)' : 'var(--c-cyan-border)';
+        badgeEl.style.background = isWarn ? 'var(--c-amber-dim)' : 'var(--c-cyan-dim)';
+      }
+
+      // Update header cellular pill
+      const hdrRssi = $('hdr-rssi-text');
+      if (hdrRssi) {
+        hdrRssi.textContent = `${tech} · ${rssi} dBm`;
+        hdrRssi.style.color = colorVar;
+      }
+    }
+
+    // Dynamic RF propagation jitter loop (simulates live telemetry wireless link)
+    function startDynamicRssi() {
+      if (rssiJitterTimer) clearInterval(rssiJitterTimer);
+      rssiJitterTimer = setInterval(() => {
+        if (!backendOnline) {
+          updateSignalBars(-92);
+          return;
+        }
+        // Micro-fluctuate organically by ±1 to 3 dBm around base telemetry RSSI
+        const noise = Math.floor((Math.random() - 0.49) * 4); // -1, 0, 1, 2
+        const jittered = Math.min(-58, Math.max(-92, baseRssi + noise));
+        updateSignalBars(jittered);
+        flashPacketArrows();
+      }, 850);
+    }
+
+    // Clock
+    setInterval(() => {
+      const d = new Date();
+      $('live-clock').textContent = d.toLocaleTimeString('en-GB') + '.' + String(d.getMilliseconds()).padStart(3, '0').slice(0, 2) + ' UTC';
+    }, 80);
+
+    // Logger
+    function log(src, msg, type = 'info') {
+      const ts = new Date().toLocaleTimeString('en-GB');
+      logs.unshift({ ts, src, msg, type });
+      if (logs.length > 35) logs.pop();
+      renderLogs();
+    }
+
+    function renderLogs() {
+      $('logs').innerHTML = logs.map(l => {
+        const isAlert = l.type === 'danger' || l.type === 'warning';
+        const color = isAlert ? 'var(--c-amber)' : 'var(--c-cyan)';
+        const bg = isAlert ? 'var(--c-amber-dim)' : 'var(--c-cyan-dim)';
+        return `<div class="log-row" style="border-left-color:${color};">
+          <span class="log-time">${l.ts}</span>
+          <span class="log-tag" style="background:${bg};color:${color};">${l.src}</span>
+          <span class="log-msg">${l.msg}</span>
+        </div>`;
+      }).join('');
+    }
+
+    log('SYS', 'Mission control live — dynamic cellular RSSI active', 'info');
+
+    // View Mode
+    function setView(m) {
+      ['dual', 'vision', 'radar', 'mines'].forEach(v => {
+        const btn = $('v-' + v);
+        if (btn) btn.classList.toggle('active', v === m);
+      });
+
+      const ck = $('cockpit'), pv = $('p-vision'), pr = $('p-radar');
+
+      if (m === 'dual') {
+        pv.style.display = 'flex'; pr.style.display = 'flex';
+        ck.style.display = 'grid'; ck.style.gridTemplateColumns = '1fr 1fr';
+      } else if (m === 'vision') {
+        pv.style.display = 'flex'; pr.style.display = 'none';
+        ck.style.display = 'grid'; ck.style.gridTemplateColumns = '1fr';
+      } else if (m === 'radar') {
+        pv.style.display = 'none'; pr.style.display = 'flex';
+        ck.style.display = 'grid'; ck.style.gridTemplateColumns = '1fr';
+      } else if (m === 'mines') {
+        pv.style.display = 'none'; pr.style.display = 'none';
+        ck.style.display = 'none';
+      }
+
+      setTimeout(() => {
+        if (mapInstance) mapInstance.invalidateSize();
+      }, 150);
+    }
+
+    $('v-dual').onclick = () => setView('dual');
+    $('v-vision').onclick = () => setView('vision');
+    $('v-radar').onclick = () => setView('radar');
+    $('v-mines').onclick = () => setView('mines');
+
+    // Details tabs
+    $('tab-specs-btn').onclick = () => {
+      $('tab-specs-btn').classList.add('active');
+      $('tab-audit-btn').classList.remove('active');
+      $('tab-specs').style.display = 'flex';
+      $('tab-audit').style.display = 'none';
+    };
+
+    $('tab-audit-btn').onclick = () => {
+      $('tab-audit-btn').classList.add('active');
+      $('tab-specs-btn').classList.remove('active');
+      $('tab-specs').style.display = 'none';
+      $('tab-audit').style.display = 'flex';
+    };
+
+    // ==========================================
+    // INITIALIZE SQUARE-LIKE OPENSTREETMAP (OSM) INDIA MAP
+    // ==========================================
+    function initOsmMap() {
+      if (typeof L === 'undefined') {
+        setTimeout(initOsmMap, 300);
+        return;
+      }
+
+      mapInstance = L.map('india-map', {
+        center: [21.0, 82.2],
+        zoom: 4.8,
+        minZoom: 4,
+        maxZoom: 14,
+        zoomControl: true,
+        zoomSnap: 0.1,
+        attributionControl: true
+      });
+
+      const osmTileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+      L.tileLayer(osmTileUrl, {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        subdomains: ['a', 'b', 'c'],
+        maxZoom: 19
+      }).addTo(mapInstance);
+
+      INDIAN_IRON_MINES.forEach(mine => {
+        const markerEl = document.createElement('div');
+        markerEl.className = `mine-marker-pin ${mine.id === currentMine.id ? 'selected' : ''}`;
+        markerEl.innerHTML = `
+          <div class="pin-pulse"></div>
+          <div class="pin-core"></div>
+        `;
+
+        const icon = L.divIcon({
+          html: markerEl,
+          className: 'custom-leaflet-div',
+          iconSize: [24, 24],
+          iconAnchor: [12, 12]
+        });
+
+        const marker = L.marker([mine.lat, mine.lng], { icon: icon })
+          .addTo(mapInstance)
+          .bindTooltip(`<b>${mine.name}</b><br><span style="font-size:11px;color:#22d3ee;font-weight:600;">${mine.operator} (${mine.state})</span>`, {
+            direction: 'top',
+            offset: [0, -12],
+            opacity: 0.98
+          });
+
+        marker.on('click', () => {
+          selectMine(mine);
+        });
+
+        markersMap[mine.id] = { marker, markerEl };
+      });
+
+      renderMineChips();
+      selectMine(currentMine, false);
+
+      setTimeout(() => {
+        if (mapInstance) {
+          mapInstance.invalidateSize();
+          const bounds = L.latLngBounds(INDIAN_IRON_MINES.map(m => [m.lat, m.lng]));
+          mapInstance.fitBounds(bounds, { padding: [16, 16] });
+        }
+      }, 350);
+    }
+
+    function renderMineChips() {
+      const container = $('mine-chips');
+      container.innerHTML = INDIAN_IRON_MINES.map(m => `
+        <button class="chip-btn ${m.id === currentMine.id ? 'active' : ''}" id="chip-${m.id}" onclick="selectMineById('${m.id}')">
+          ${m.name.split(' ')[0]} (${m.state.slice(0, 3)})
+        </button>
+      `).join('');
+    }
+
+    window.selectMineById = function(id) {
+      const mine = INDIAN_IRON_MINES.find(m => m.id === id);
+      if (mine) selectMine(mine, true);
+    };
+
+    function selectMine(mine, panMap = true) {
+      currentMine = mine;
+
+      $('tag-mine').textContent = `${mine.name.split(' ')[0]} (${mine.operator.split(' ')[0]})`;
+
+      INDIAN_IRON_MINES.forEach(m => {
+        const btn = $(`chip-${m.id}`);
+        if (btn) btn.classList.toggle('active', m.id === mine.id);
+      });
+
+      Object.keys(markersMap).forEach(id => {
+        const { markerEl } = markersMap[id];
+        if (markerEl) {
+          if (id === mine.id) markerEl.classList.add('selected');
+          else markerEl.classList.remove('selected');
+        }
+      });
+
+      if (panMap && mapInstance) {
+        mapInstance.flyTo([mine.lat, mine.lng], Math.max(mapInstance.getZoom(), 7), {
+          duration: 1.2
+        });
+      }
+
+      $('d-name').textContent = mine.name;
+      $('d-state').textContent = `${mine.district}, ${mine.state}`;
+      $('d-grade').textContent = mine.feGrade;
+      $('d-capacity').textContent = mine.capacity;
+      $('d-reserves').textContent = mine.reserves;
+      $('d-ore').textContent = mine.oreType.split(' ')[0];
+
+      $('d-operator').textContent = mine.operator;
+      $('d-fleet').textContent = mine.fleet;
+      $('d-supply').textContent = mine.supplyTo;
+      $('d-hazard').innerHTML = `<b>Hazard:</b> ${mine.hazard}`;
+
+      log('MINE', `${mine.name} (${mine.state}) · ${mine.capacity}`, 'info');
+    }
+
+    $('btn-fit-india').onclick = () => {
+      if (!mapInstance) return;
+      const bounds = L.latLngBounds(INDIAN_IRON_MINES.map(m => [m.lat, m.lng]));
+      mapInstance.fitBounds(bounds, { padding: [16, 16] });
+      log('GIS', 'OSM view reset to full India corridor', 'info');
+    };
+
+    $('btn-toggle-tiles').onclick = () => {
+      darkTilesActive = !darkTilesActive;
+      const mapEl = $('india-map');
+      const btn = $('btn-toggle-tiles');
+      if (darkTilesActive) {
+        mapEl.classList.add('osm-dark-tiles');
+        btn.classList.add('active');
+        btn.textContent = 'Dark GIS';
+      } else {
+        mapEl.classList.remove('osm-dark-tiles');
+        btn.classList.remove('active');
+        btn.textContent = 'OSM Color';
+      }
+    };
+
+    // ==========================================
+    // BACKEND HEALTH CHECK (Real data only)
+    // ==========================================
+    async function checkHealth() {
+      try {
+        const r = await fetch(`${API}/health`, { cache: 'no-store' });
+        if (!r.ok) throw new Error();
+        healthData = await r.json();
+        backendOnline = true;
+
+        $('api-tag').className = 'tag tag-cyan';
+        $('api-tag').innerHTML = '<span class="tag-dot" style="background:var(--c-cyan);box-shadow:0 0 5px var(--c-cyan);"></span>Backend Online';
+
+        const mode = healthData.detection_mode || '—';
+        $('tag-mode').style.display = 'inline-flex';
+        $('tag-mode').textContent = `Mode: ${mode}`;
+
+        $('v-model').textContent = mode === 'similarity' ? 'Model: MobileNetV2 (Similarity)'
+          : mode === 'classifier' ? 'Model: MobileNetV2 (Classifier)'
+          : mode === 'demo' ? 'Model: OpenCV HSV + Canny (Demo)'
+          : `Model: ${mode}`;
+
+        $('v-clahe').textContent = healthData.visibility_enhancement_enabled ? 'CLAHE: Active' : 'CLAHE: Off';
+        $('v-clahe').style.color = healthData.visibility_enhancement_enabled ? 'var(--c-cyan)' : 'var(--c-white-muted)';
+
+        if (healthData.similarity_threshold != null) {
+          $('v-threshold').textContent = `Threshold: ${healthData.similarity_threshold.toFixed(2)}`;
+        }
+
+        if (!cameraActive) initCamera();
+      } catch (e) {
+        backendOnline = false;
+        $('api-tag').className = 'tag tag-amber';
+        $('api-tag').innerHTML = '<span class="tag-dot" style="background:var(--c-amber);box-shadow:0 0 5px var(--c-amber);"></span>Backend Offline';
+        $('tag-mode').style.display = 'none';
+      }
+    }
+
+    // ==========================================
+    // TELEMETRY POLLING (Real data from ESP32)
+    // ==========================================
+    async function pollTelemetry() {
+      if (!backendOnline) return;
+      try {
+        const r = await fetch(`${API}/telemetry`, { cache: 'no-store' });
+        if (!r.ok) return;
+        telemetry = await r.json();
+        telemetryReceived = true;
+        renderTelemetry();
+      } catch (e) {}
+    }
+
+    function renderTelemetry() {
+      const t = telemetry;
+
+      // Radar readout
+      $('r-dist').textContent = t.distance_mm != null ? t.distance_mm : '—';
+      $('r-cm').textContent = t.distance_mm != null ? `(${(t.distance_mm / 10).toFixed(1)} cm)` : '—';
+
+      const d = t.distance_mm || 500;
+      const isWarn = d <= 200;
+      $('r-dist').style.color = isWarn ? 'var(--c-amber)' : 'var(--c-white)';
+
+      // Sensors
+      $('s-hum').textContent = t.humidity != null ? `${Math.round(t.humidity)}%` : '—';
+      $('s-lux').textContent = t.ambient_light != null ? Math.round(t.ambient_light) : '—';
+      $('s-temp').textContent = t.temperature != null ? `${t.temperature.toFixed(1)}°` : '—';
+
+      // Heuristics
+      const obst = t.obstacle_detected || t.object_detected || false;
+      $('ir-val').textContent = obst ? 'Detected' : 'Clear';
+      $('ir-val').style.color = obst ? 'var(--c-amber)' : 'var(--c-cyan)';
+
+      const isFog = t.fog_status === 'FOG ALERT' || (t.humidity >= 75 && t.ambient_light <= 100);
+      $('fog-val').textContent = isFog ? 'Alert' : 'Clear';
+      $('fog-val').style.color = isFog ? 'var(--c-amber)' : 'var(--c-cyan)';
+
+      $('safety-val').textContent = t.safety_status || '—';
+      $('safety-val').style.color = (t.safety_status === 'WARNING' || t.safety_status === 'CAUTION') ? 'var(--c-amber)' : 'var(--c-cyan)';
+
+      // Update base RSSI from real telemetry
+      if (t.rssi != null) {
+        baseRssi = t.rssi;
+      }
+      flashPacketArrows();
+
+      $('prox-tag').textContent = t.proximity || '—';
+
+      updateThreat();
+    }
+
+    // ==========================================
+    // THREAT CORRELATION
+    // ==========================================
+    function updateThreat() {
+      if (!telemetryReceived) return;
+
+      const d = telemetry.distance_mm || 500;
+      const h = telemetry.humidity || 0;
+      const l = telemetry.ambient_light || 999;
+      const od = visionResult.detected;
+      const oc = Math.round(visionResult.confidence * 100);
+      const fog = h >= 75 && l <= 100;
+      const crit = d <= 80 || (od && d <= 160);
+      const caut = !crit && (d <= 200 || od || fog);
+
+      $('t-optical').textContent = od ? `Optical: Lock ${oc}%` : 'Optical: Clear';
+      $('t-optical').className = `tag ${od ? 'tag-amber' : 'tag-cyan'}`;
+      $('t-radar').textContent = `Radar: ${d}mm`;
+      $('t-radar').className = `tag ${(crit || caut) ? 'tag-amber' : 'tag-cyan'}`;
+
+      const dot = $('threat-dot'), ban = $('threat'), msg = $('threat-msg'), bdg = $('t-badge');
+
+      if (crit || caut) {
+        ban.style.borderColor = 'var(--c-amber-border)';
+        dot.style.background = 'var(--c-amber)';
+        dot.style.boxShadow = '0 0 10px var(--c-amber)';
+        msg.textContent = crit
+          ? (od ? `Critical — Vehicle confirmed at ${d}mm in ${currentMine.name}` : `Critical — Obstruction within ${d}mm`)
+          : (od ? `Caution — Vehicle detected (${oc}%) in ${currentMine.name}` : (fog ? `Advisory — Fog conditions at ${currentMine.district}` : `Caution — Object at ${d}mm`));
+        msg.style.color = 'var(--c-amber)';
+        bdg.textContent = `${crit ? 'DANGER' : 'CAUTION'} — ${d}mm`;
+        bdg.style.cssText = 'background:var(--c-amber-dim);border:1px solid var(--c-amber-border);color:var(--c-amber);font-family:var(--font-mono);font-size:11px;font-weight:700;padding:3px 10px;border-radius:4px;';
+      } else {
+        ban.style.borderColor = 'var(--c-cyan-border)';
+        dot.style.background = 'var(--c-cyan)';
+        dot.style.boxShadow = '0 0 10px var(--c-cyan)';
+        msg.textContent = `Route clear — ${currentMine.name} haul road clearance verified`;
+        msg.style.color = 'var(--c-white)';
+        bdg.textContent = `SAFE — ${d}mm`;
+        bdg.style.cssText = 'background:var(--c-cyan-dim);border:1px solid var(--c-cyan-border);color:var(--c-cyan);font-family:var(--font-mono);font-size:11px;font-weight:700;padding:3px 10px;border-radius:4px;';
+      }
+    }
+
+    // ==========================================
+    // RADAR CANVAS
+    // ==========================================
+    const rc = $('radar-canvas');
+    let radarSweep = 0;
+
+    function drawRadar() {
+      if (!rc) return;
+      const rect = rc.parentElement.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      rc.width = rect.width * dpr; rc.height = rect.height * dpr;
+      rc.style.width = rect.width + 'px'; rc.style.height = rect.height + 'px';
+
+      const ctx = rc.getContext('2d');
+      ctx.scale(dpr, dpr);
+      const w = rect.width, h = rect.height;
+      const cx = w / 2, cy = 8;
+      const R = Math.min(w * 0.38, h * 0.85);
+
+      ctx.clearRect(0, 0, w, h);
+
+      for (let i = 1; i <= 3; i++) {
+        ctx.beginPath(); ctx.arc(cx, cy, R * i / 3, 0, Math.PI);
+        ctx.strokeStyle = `rgba(255,255,255,${0.06 + i * 0.02})`; ctx.lineWidth = 1; ctx.stroke();
+      }
+
+      for (let a = 0; a <= 180; a += 30) {
+        const rad = (a * Math.PI) / 180;
+        ctx.beginPath(); ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + Math.cos(rad) * R, cy + Math.sin(rad) * R);
+        ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1; ctx.stroke();
+      }
+
+      if (!telemetryReceived) return;
+
+      const dist = Math.max(30, Math.min(700, telemetry.distance_mm || 500));
+      const pct = (dist - 30) / (700 - 30);
+      const arcAngle = Math.PI * pct;
+      const isWarn = dist <= 200;
+      const arcColor = isWarn ? 'rgba(251,191,36,' : 'rgba(34,211,238,';
+
+      ctx.beginPath(); ctx.arc(cx, cy, R * 0.92, 0, arcAngle);
+      ctx.strokeStyle = arcColor + '0.85)'; ctx.lineWidth = 3.5; ctx.lineCap = 'round'; ctx.stroke();
+
+      ctx.beginPath(); ctx.arc(cx, cy, R * 0.92, 0, arcAngle);
+      ctx.strokeStyle = arcColor + '0.22)'; ctx.lineWidth = 9; ctx.stroke();
+
+      radarSweep = (radarSweep + 0.8) % 180;
+      const sweepRad = (radarSweep * Math.PI) / 180;
+      const grad = ctx.createLinearGradient(cx, cy, cx + Math.cos(sweepRad) * R, cy + Math.sin(sweepRad) * R);
+      grad.addColorStop(0, 'rgba(34,211,238,0.0)');
+      grad.addColorStop(0.5, 'rgba(34,211,238,0.10)');
+      grad.addColorStop(1, 'rgba(34,211,238,0.35)');
+      ctx.beginPath(); ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(sweepRad) * R, cy + Math.sin(sweepRad) * R);
+      ctx.strokeStyle = grad; ctx.lineWidth = 1.8; ctx.stroke();
+
+      const dotX = cx + Math.cos(arcAngle) * R * 0.92;
+      const dotY = cy + Math.sin(arcAngle) * R * 0.92;
+      ctx.beginPath(); ctx.arc(dotX, dotY, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = arcColor + '0.95)'; ctx.fill();
+    }
+
+    function radarLoop() { drawRadar(); requestAnimationFrame(radarLoop); }
+    radarLoop();
+
+    // ==========================================
+    // DYNAMIC OPTICAL VISION & CAMERA CONTROLLER
+    // ==========================================
+    let isSimulatingCam = false;
+    let simCamRaf = null;
+    let simTruckProgress = 0.15; // 0 to 1 along road
+    let simTruckSpeed = 0.003;
+
+    function drawSimulatedHaulRoad() {
+      const cv = $('sim-canvas');
+      if (!cv) return;
+      const ctx = cv.getContext('2d');
+      const w = cv.width, h = cv.height;
+
+      // Sky / Dust gradient
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, h * 0.45);
+      skyGrad.addColorStop(0, '#10141f');
+      skyGrad.addColorStop(1, '#2c2725');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, w, h * 0.45);
+
+      // Pit bench wall
+      ctx.fillStyle = '#3a3028';
+      ctx.beginPath();
+      ctx.moveTo(0, h * 0.42);
+      ctx.lineTo(w * 0.35, h * 0.36);
+      ctx.lineTo(w * 0.7, h * 0.40);
+      ctx.lineTo(w, h * 0.35);
+      ctx.lineTo(w, h * 0.48);
+      ctx.lineTo(0, h * 0.48);
+      ctx.closePath();
+      ctx.fill();
+
+      // Haul road surface (iron ore pit red-brown gravel)
+      const roadGrad = ctx.createLinearGradient(0, h * 0.45, 0, h);
+      roadGrad.addColorStop(0, '#4a3224');
+      roadGrad.addColorStop(1, '#683e28');
+      ctx.fillStyle = roadGrad;
+      ctx.fillRect(0, h * 0.45, w, h * 0.55);
+
+      // Perspective road guide markers
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(w * 0.48, h * 0.45); ctx.lineTo(w * 0.12, h);
+      ctx.moveTo(w * 0.52, h * 0.45); ctx.lineTo(w * 0.88, h);
+      ctx.stroke();
+
+      // Dashed centerline
+      ctx.setLineDash([8, 12]);
+      ctx.strokeStyle = 'rgba(251, 191, 36, 0.45)'; // Amber mining road center line
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(w * 0.5, h * 0.45);
+      ctx.lineTo(w * 0.5, h);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Update truck position along perspective path
+      simTruckProgress += simTruckSpeed;
+      if (simTruckProgress > 1.25) simTruckProgress = -0.25;
+
+      // Draw CAT Mining Dumper Truck when on road
+      if (simTruckProgress >= 0 && simTruckProgress <= 1.0) {
+        const t = simTruckProgress;
+        const scale = 0.25 + t * 0.95; // Gets bigger as it approaches
+        const tw = 85 * scale;
+        const th = 62 * scale;
+        const tx = w * 0.5 + (t - 0.5) * 40 - tw / 2;
+        const ty = h * 0.45 + (h * 0.52) * Math.pow(t, 1.4) - th;
+
+        // Shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+        ctx.beginPath();
+        ctx.ellipse(tx + tw / 2, ty + th * 0.95, tw * 0.55, th * 0.18, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Authentic Mining Yellow Body (Triggers yellow_ratio in MobileNet / model_service)
+        ctx.fillStyle = '#f5b018'; // CAT mining equipment yellow
+        ctx.fillRect(tx + tw * 0.15, ty + th * 0.28, tw * 0.7, th * 0.48);
+
+        // Dump bed
+        ctx.fillStyle = '#d9980e';
+        ctx.beginPath();
+        ctx.moveTo(tx + tw * 0.1, ty + th * 0.15);
+        ctx.lineTo(tx + tw * 0.9, ty + th * 0.15);
+        ctx.lineTo(tx + tw * 0.85, ty + th * 0.42);
+        ctx.lineTo(tx + tw * 0.15, ty + th * 0.42);
+        ctx.closePath();
+        ctx.fill();
+
+        // Cab
+        ctx.fillStyle = '#f5b018';
+        ctx.fillRect(tx + tw * 0.22, ty + th * 0.18, tw * 0.26, th * 0.22);
+        ctx.fillStyle = '#1c2430'; // Cab glass
+        ctx.fillRect(tx + tw * 0.24, ty + th * 0.20, tw * 0.22, th * 0.12);
+
+        // Tires
+        ctx.fillStyle = '#1a1816';
+        ctx.fillRect(tx + tw * 0.08, ty + th * 0.52, tw * 0.18, th * 0.38);
+        ctx.fillRect(tx + tw * 0.74, ty + th * 0.52, tw * 0.18, th * 0.38);
+      }
+
+      // Optical HUD overlay scanline
+      ctx.fillStyle = 'rgba(34, 211, 238, 0.04)';
+      const scanY = (Date.now() / 15) % h;
+      ctx.fillRect(0, scanY, w, 2);
+
+      if (isSimulatingCam) {
+        simCamRaf = requestAnimationFrame(drawSimulatedHaulRoad);
+      }
+    }
+
+    async function initCamera() {
+      $('cam-msg').style.display = 'flex';
+      $('cam-msg').innerHTML = `
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--c-cyan);opacity:0.9;animation:breathe 1.5s ease-in-out infinite;">
+          <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/>
+        </svg>
+        <span style="font-weight:600;font-size:12px;">Binding camera stream…</span>
+      `;
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        startSimulatedCamera('Webcam API unavailable · Standby stream active');
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'environment' },
+          audio: false
+        });
+        webcamStream = stream;
+        const video = $('cam-video');
+        video.srcObject = stream;
+        await video.play();
+
+        // Hardware camera attached & streaming!
+        video.style.display = 'block';
+        if ($('sim-canvas')) $('sim-canvas').style.display = 'none';
+        $('cam-msg').style.display = 'none';
+        $('fps-tag').style.display = 'block';
+        cameraActive = true;
+        isSimulatingCam = false;
+
+        $('cam-status-tag').textContent = 'Live Cam';
+        $('cam-status-tag').className = 'tag tag-cyan';
+        const btnAct = $('btn-cam-action');
+        if (btnAct) btnAct.textContent = 'Cam Active';
+
+        const track = stream.getVideoTracks()[0];
+        const settings = track.getSettings();
+        $('viewport-info').textContent = `${settings.width || 640}×${settings.height || 480} · ${track.label || 'Webcam'}`;
+
+        log('CAM', `Hardware camera attached: ${track.label || 'Camera 1'}`, 'info');
+
+        if (!predicting) {
+          predicting = true;
+          setInterval(captureAndPredict, 700);
+        }
+      } catch (err) {
+        const reason = err.name === 'NotAllowedError' ? 'Permission denied' :
+                       err.name === 'NotFoundError' ? 'No camera hardware detected' :
+                       err.name === 'NotReadableError' ? 'Camera in use' : err.message;
+        log('CAM', `Hardware camera: ${reason}`, 'warning');
+        startSimulatedCamera(reason);
+      }
+    }
+
+    function startSimulatedCamera(reason = 'Simulated Stream') {
+      cameraActive = true;
+      isSimulatingCam = true;
+
+      const video = $('cam-video');
+      if (video) video.style.display = 'none';
+
+      const cv = $('sim-canvas');
+      if (cv) {
+        cv.style.display = 'block';
+        cancelAnimationFrame(simCamRaf);
+        simCamRaf = requestAnimationFrame(drawSimulatedHaulRoad);
+      }
+
+      $('cam-msg').style.display = 'none';
+      $('fps-tag').style.display = 'block';
+      $('cam-status-tag').textContent = 'Live Feed';
+      $('cam-status-tag').className = 'tag tag-cyan';
+      $('viewport-info').textContent = `Optical Haul Stream (Auto-sync)`;
+      const btnAct = $('btn-cam-action');
+      if (btnAct) btnAct.textContent = 'Connect Cam';
+
+      if (!predicting) {
+        predicting = true;
+        setInterval(captureAndPredict, 700);
+      }
+    }
+
+    // ==========================================
+    // REAL PREDICTION LOOP (frame -> /predict)
+    // ==========================================
+    async function captureAndPredict() {
+      if (!backendOnline || !cameraActive) return;
+
+      const canvas = $('predict-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      canvas.width = 224; canvas.height = 224;
+
+      if (!isSimulatingCam && webcamStream) {
+        const video = $('cam-video');
+        if (!video || !video.videoWidth) return;
+        ctx.drawImage(video, 0, 0, 224, 224);
+      } else {
+        const simCv = $('sim-canvas');
+        if (!simCv) return;
+        ctx.drawImage(simCv, 0, 0, 224, 224);
+      }
+
+      canvas.toBlob(async blob => {
+        if (!blob) return;
+        const fd = new FormData();
+        fd.append('frame', blob, 'frame.jpg');
+
+        try {
+          const t0 = performance.now();
+          const res = await fetch(`${API}/predict`, { method: 'POST', body: fd });
+          if (res.ok) {
+            const data = await res.json();
+            const ms = Math.round(performance.now() - t0);
+            const wasDet = visionResult.detected;
+            visionResult = data;
+
+            const fps = Math.min(3.8, Math.max(1.0, 1000 / (ms + 550))).toFixed(1);
+            $('fps-tag').textContent = `${fps} FPS · ${ms}ms`;
+
+            if (data.detected && !wasDet)
+              log('VIS', `Dumper truck locked (${(data.confidence * 100).toFixed(1)}%) in ${currentMine.name}`, 'warning');
+            if (!data.detected && wasDet)
+              log('VIS', 'Target cleared — haul path clear', 'info');
+
+            renderVision(data);
+          }
+        } catch (e) {}
+      }, 'image/jpeg', 0.85);
+    }
+
+    function renderVision(r) {
+      const p = Math.round(r.confidence * 100);
+
+      if (r.detected) {
+        $('reticle').style.display = 'flex';
+        $('reticle-lock').textContent = `LOCK ${p}%`;
+        $('v-status').textContent = 'Dumper truck locked';
+        $('v-status').style.color = 'var(--c-amber)';
+        $('v-conf').textContent = `${p}%`; $('v-conf').style.color = 'var(--c-amber)';
+        $('v-bar').style.width = `${Math.max(15, p)}%`;
+        $('v-bar').style.background = 'linear-gradient(90deg, var(--c-cyan), var(--c-amber))';
+      } else {
+        $('reticle').style.display = 'none';
+        $('v-status').textContent = 'Scanning haul path…';
+        $('v-status').style.color = 'var(--c-white)';
+        const sp = Math.round(r.raw_score * 100);
+        $('v-conf').textContent = `${sp}%`; $('v-conf').style.color = 'var(--c-cyan)';
+        $('v-bar').style.width = `${Math.max(8, sp)}%`;
+        $('v-bar').style.background = 'var(--c-cyan)';
+      }
+
+      $('v-raw').textContent = `Raw: ${r.raw_score.toFixed(3)}`;
+      updateThreat();
+    }
+
+    // Camera connect button handlers
+    const btnCamAct = $('btn-cam-action');
+    if (btnCamAct) btnCamAct.onclick = () => initCamera();
+    const btnCamOvl = $('btn-connect-cam-overlay');
+    if (btnCamOvl) btnCamOvl.onclick = () => initCamera();
+
+    // ==========================================
+    // BOOTSTRAP
+    // ==========================================
+    checkHealth();
+    pollTelemetry();
+    initOsmMap();
+    startDynamicRssi();
+    initCamera(); // Auto-bind camera or start dynamic optical stream
+
+    setInterval(checkHealth, 3500);
+    setInterval(pollTelemetry, 650); // Fast real-time polling (650ms)
+
+    window.addEventListener('resize', () => {
+      if (mapInstance) mapInstance.invalidateSize();
+    });
+  </script>
+</body>
+</html>

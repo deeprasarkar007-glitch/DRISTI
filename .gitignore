@@ -1,9 +1,15 @@
 # Python
 __pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
 *.pyc
 .venv/
 venv/
-env/
+**/venv/
+**/env/
+*.egg-info/
+.pytest_cache/
 
 # Model artifacts (large binaries - don't commit trained models to git)
 model_training/saved_model/*.keras
@@ -15,7 +21,7 @@ backend/saved_model/*.h5
 backend/saved_model/*.npy
 backend/saved_model/*.json
 
-# Training data (can be large; keep it local)
+# Training data (large files; keep local)
 model_training/image_data/**/*.jpg
 model_training/image_data/**/*.jpeg
 model_training/image_data/**/*.png
@@ -25,16 +31,34 @@ model_training/image_data/**/*.PNG
 
 # Jupyter
 .ipynb_checkpoints/
+**/.ipynb_checkpoints/
 
-# Node / Next.js
-frontend/node_modules/
-frontend/.next/
-frontend/out/
+# Node / Next.js / Vite
+node_modules/
+**/node_modules/
+.next/
+**/.next/
+dist/
+**/dist/
+out/
+**/out/
+*.tsbuildinfo
+**/*.tsbuildinfo
+.npm/
+
+# Environment secrets
+.env
+.env.local
+.env.*.local
+backend/.env
 frontend/.env.local
 
-# Backend env
-backend/.env
-
-# OS
+# OS & Editor
 .DS_Store
 Thumbs.db
+ehthumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+

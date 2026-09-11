@@ -22,7 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image, UnidentifiedImageError
 
 from app.model_service import ENHANCE_VISIBILITY, model_service
-from app.schemas import HealthResponse, PredictionResponse
+from app.schemas import HealthResponse, PredictionResponse, TelemetryData
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("dumper_truck_backend")
@@ -36,7 +36,14 @@ app = FastAPI(
 frontend_origin = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[frontend_origin, "http://127.0.0.1:3000"],
+    allow_origins=[
+        frontend_origin,
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
+    ],
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -89,3 +96,26 @@ async def predict(frame: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Prediction failed: {exc}") from exc
 
     return PredictionResponse(**result)
+
+
+# In-memory store for IoT Telemetry (from ESP32 or simulation)
+latest_telemetry = TelemetryData()
+
+
+@app.get("/telemetry", response_model=TelemetryData)
+def get_telemetry():
+    return latest_telemetry
+
+
+@app.post("/telemetry", response_model=TelemetryData)
+def update_telemetry(data: TelemetryData):
+    global latest_telemetry
+    latest_telemetry = data
+    return latest_telemetry
+
+
+@app.post("/telemetry/reset", response_model=TelemetryData)
+def reset_telemetry():
+    global latest_telemetry
+    latest_telemetry = TelemetryData()
+    return latest_telemetry

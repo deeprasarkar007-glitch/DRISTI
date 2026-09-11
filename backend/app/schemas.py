@@ -15,3 +15,20 @@ class HealthResponse(BaseModel):
     class_names: list[str] | None = None
     similarity_threshold: float | None = None
     visibility_enhancement_enabled: bool
+
+
+class TelemetryData(BaseModel):
+    vehicle_id: str = "DRS-001"
+    zone: str = "A3"
+    packet: int = 0
+    temperature: float = 24.0
+    humidity: float = 60.0
+    ambient_light: float = 300.0
+    distance_mm: int = 500
+    object_detected: bool = False
+    obstacle_detected: bool = False
+    fog_status: str = "CLEAR"
+    safety_status: str = "SAFE"
+    rssi: int = -70
+    proximity: str = "CLOSE"
+
