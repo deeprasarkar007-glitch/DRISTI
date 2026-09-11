@@ -77,7 +77,7 @@ echo   Close the "Backend" window or press Ctrl+C here to stop.
 echo ============================================
 echo.
 
-start "Dumper Truck Detector - Backend" cmd /k "cd /d "%~dp0backend" && call .venv\Scripts\activate.bat && uvicorn app.main:app --reload --port 8000"
+start "Dumper Truck Detector - Backend" /D "%~dp0backend" cmd /k "call .venv\Scripts\activate.bat && uvicorn app.main:app --reload --port 8000"
 
 :: ---- Launch frontend in this window ----
 cd /d "%~dp0frontend"

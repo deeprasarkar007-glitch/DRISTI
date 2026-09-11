@@ -51,6 +51,10 @@ def predict(image: Image.Image):
         "confidence": float(confidence)
     }
 class ModelService:
+    def __init__(self):
+        self.is_loaded = model is not None
+        self.class_names = class_names if model is not None else []
+
     def predict(self, image):
         return predict(image)
 
